@@ -233,7 +233,14 @@ def test_pass2_learning_detects_correction_and_penalizes(db: Database, monkeypat
     ).fetchone()
     assert manual_row is not None
     assert manual_row["target_folder"] == "INBOX/Travel"
-
+    # --- Verify Performance stats reflect this correction --- 
+    from mailsort.classifier.rules import RuleEngine
+    engine = RuleEngine(db, cfg.classification.thresholds)
+    perf = engine.get_rule_performance(rules["noreply@chase.com"])
+    # 1 move in pass 1, which was corrected
+    assert perf["total"] == 1
+    assert perf["corrections"] == 1
+    assert perf["success_rate"] == 0.0  
     # --- Verify dedup: running again doesn't double-penalize ---
     original_conf = rule_row["confidence"]
     mock_jmap3 = MagicMock()

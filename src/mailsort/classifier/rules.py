@@ -97,6 +97,40 @@ class RuleEngine:
         )
         self._db.commit()
 
+    def get_rule_performance(self, rule_id: int, sample_size: int = 50) -> dict:
+            """Calculate recent success rate for a rule.
+            
+            Returns a dict with 'total', 'corrections', and 'success_rate'.
+            """
+            # Find emails moved by this rule, joined against any subsequent manual sorts
+            # for those same emails.
+            rows = self._db.execute(
+                """
+                WITH rule_moves AS (
+                    SELECT email_id FROM audit_log
+                    WHERE rule_id = ? AND classification_source = 'rule' AND moved = 1
+                    ORDER BY created_at DESC LIMIT ?
+                ),
+                corrections AS (
+                    SELECT DISTINCT email_id FROM audit_log
+                    WHERE classification_source = 'manual'
+                )
+                SELECT 
+                    COUNT(*) as total,
+                    SUM(CASE WHEN c.email_id IS NOT NULL THEN 1 ELSE 0 END) as corrected
+                FROM rule_moves rm
+                LEFT JOIN corrections c ON rm.email_id = c.email_id
+                """,
+                (rule_id, sample_size),
+            ).fetchone()
+
+            total = rows["total"] or 0
+            corrected = rows["corrected"] or 0
+            success_rate = (1.0 - (corrected / total)) * 100 if total > 0 else 100.0
+            return {"total": total, "corrections": corrected, "success_rate": success_rate}
+
+
+
     @staticmethod
     def _to_classification(rule: dict) -> Classification:
         return Classification(

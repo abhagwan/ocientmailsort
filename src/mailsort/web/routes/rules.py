@@ -2,14 +2,54 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Request, Form
+from fastapi import APIRouter, Request, Form, HTTPException
 from fastapi.responses import RedirectResponse
+
+from mailsort.classifier.rules import RuleEngine
 
 router = APIRouter(prefix="/rules")
 
+@router.get("/audit/{audit_id}/explain")
+def explain_move(request: Request, audit_id: int):
+    db = request.state.db
+    templates = request.app.state.templates
+
+    # Fetch the specific audit log entry
+    audit = db.execute("SELECT * FROM audit_log WHERE id = ?", (audit_id,)).fetchone()
+    if not audit:
+        raise HTTPException(status_code=404, detail="Audit log entry not found")
+
+    explanation = ""
+    stats = None
+
+    if audit["classification_source"] == "rule" and audit["rule_id"]:
+        # Fetch rule and calculate performance
+        rule = db.execute("SELECT * FROM rules WHERE id = ?", (audit["rule_id"],)).fetchone()
+        if rule:
+            engine = RuleEngine(db, request.app.state.config.classification.thresholds)
+            stats = engine.get_rule_performance(rule["id"], sample_size=50)
+            
+            explanation = (
+                f"This was moved to {audit['target_folder']} because it matched the "
+                f"{rule['rule_type']} rule for {rule['condition_value']}, which has a "
+                f"{stats['success_rate']:.0f}% success rate over the last {stats['total']} emails."
+            )
+    elif audit["classification_source"] == "llm":
+        explanation = f"This was moved via AI analysis. Reasoning: {audit['llm_reasoning']}"
+    elif audit["classification_source"] == "thread":
+        explanation = "This was moved because another email in this conversation was already sorted to this folder."
+    else:
+        explanation = "No automatic classification was applied to this email."
+
+    return templates.TemplateResponse("audit/explain.html", {
+        "request": request,
+        "audit": audit,
+        "explanation": explanation,
+        "stats": stats,
+    })
 
 @router.get("/")
-async def rules_list(
+def rules_list(
     request: Request,
     filter: str = "active",
     type: str = "",
@@ -99,7 +139,7 @@ async def rules_list(
 
 
 @router.get("/{rule_id}")
-async def rule_detail(request: Request, rule_id: int):
+def rule_detail(request: Request, rule_id: int):
     db = request.state.db
     templates = request.app.state.templates
 
@@ -162,7 +202,7 @@ async def rule_detail(request: Request, rule_id: int):
 
 
 @router.post("/{rule_id}/toggle")
-async def toggle_rule(request: Request, rule_id: int):
+def toggle_rule(request: Request, rule_id: int):
     db = request.state.db
     rule = db.execute("SELECT active FROM rules WHERE id = ?", (rule_id,)).fetchone()
     if rule:
@@ -176,7 +216,7 @@ async def toggle_rule(request: Request, rule_id: int):
 
 
 @router.post("/create")
-async def create_rule(
+def create_rule(
     request: Request,
     rule_type: str = Form(...),
     condition_value: str = Form(...),

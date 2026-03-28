@@ -238,3 +238,52 @@ def test_reconcile_folders_deactivates_stale(db: Database):
     count = engine.reconcile_folders({"INBOX/Affairs/Banks", "INBOX/Tech/GitHub"})
     assert count == 1
     assert engine.find_existing_rule("exact_sender", "noreply@chase.com") is None
+# ------------------------------------------------------------------
+# Performance Tracking
+# ------------------------------------------------------------------
+
+def test_get_rule_performance(db: Database):
+    engine = _make_engine(db)
+    rule_id = engine.create_rule(
+        rule_type="exact_sender",
+        condition_value="noreply@chase.com",
+        target_folder_path="INBOX/Affairs/Banks",
+        confidence=0.95,
+        source="bootstrap",
+    )
+
+    # 1. Initial state (no moves)
+    perf = engine.get_rule_performance(rule_id)
+    assert perf["total"] == 0
+    assert perf["success_rate"] == 100.0
+
+    # 2. Record some successful moves
+    for i in range(5):
+        db.execute(
+            "INSERT INTO audit_log (run_id, email_id, rule_id, classification_source, moved, target_folder,confidence,created_at) "
+            "VALUES ('run-1', ?, ?, 'rule', 1, 'INBOX/Affairs/Banks',1.0,datetime('now'))",
+            (f"email-{i}", rule_id),
+        )
+    db.commit()
+
+    perf = engine.get_rule_performance(rule_id)
+    assert perf["total"] == 5
+    assert perf["corrections"] == 0
+    assert perf["success_rate"] == 100.0
+
+    # 3. Record a correction (user moved one of those emails to a different folder)
+    db.execute(
+        "INSERT INTO audit_log (run_id, email_id, classification_source, moved, target_folder,confidence, created_at) "
+        "VALUES ('run-2', 'email-0', 'manual', 1, 'INBOX/Travel', 1.0,datetime('now'))"
+    )
+    db.commit()
+
+    perf = engine.get_rule_performance(rule_id)
+    assert perf["total"] == 5
+    assert perf["corrections"] == 1
+    assert perf["success_rate"] == 80.0
+
+    # 4. Unknown rule
+    perf_none = engine.get_rule_performance(999)
+    assert perf_none["total"] == 0
+    assert perf_none["success_rate"] == 100.0
