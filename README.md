@@ -1,6 +1,36 @@
 # Mailsort
-
+## Updated 
+Mailsort - Rule Causation Explorer (XAI)
+[Project Overview]
+[Why]
+ Explainable AI (Rule Causation Explorer)
+Current State: The Web UI shows what happened. Enhancement: Add a "Why did this happen?" view. For a specific move, show the evidence: "This was moved to Shopping because it matched the sender_domain rule for amazon.com, which has a 98% success rate over the last 50 emails."
+[Enhancement]
+This enhancement adds the Rule Causation Explorer to Mailsort, providing transparency to the "deterministic-first" classification pipeline. It transforms the system from a "black box" into an explainable assistant by surfacing the specific evidence and historical reliability behind every automated email move.
 Self-hosted email classification service for Fastmail. Periodically scans read, unflagged inbox messages and moves them to the appropriate subfolder using deterministic rules and an LLM classifier.
+Why: Explainable AI (XAI)
+The "Why did this happen?" view was chosen to reinforce Mailsort’s core philosophy of user-controlled automation:
+Trust: Replaces opaque automation with data-backed logic (e.g., "Matched sender_domain for amazon.com").
+Performance Tracking: Displays real-time success rates (e.g., "98% success over 50 emails") based on your actual manual corrections.
+Actionable Debugging: Quickly identifies which rules are underperforming or require "Confidence Decay" adjustments.
+Setup & Implementation
+Environment: Requires Python 3.12.
+Database: Utilizes existing SQLite audit_log and rules tables.
+Run Application: python -m mailsort.main
+[Testing & Quality Assurance]
+Following Mailsort’s disciplined methodology (Phase Cards & Dry-Run Safety), this feature was validated using a "Closed Loop" strategy:
+1. How I Thought About Testing
+Testing focuses on the relationship between automated moves and manual corrections. If a user moves an email back, the "Explainable" logic must immediately reflect a drop in that rule's success rate.
+2. Validation Layers
+Unit (tests/test_rules.py): Validates the SQL CTE logic that calculates success rates by joining automated entries with manual overrides.
+Web (tests/test_web_rules.py): Ensures the controller correctly handles different classification sources (Rule Engine, LLM, or Thread Context) and returns the proper template context.
+Integration (tests/test_integration.py): Verifies the full feedback loop—simulating an automated move, followed by a manual correction, and confirming the "Why?" view updates the statistical evidence.
+3. Run Tests
+pytest tests/test_rules.py tests/test_web_rules.py tests/test_integration.py
+
+
+-[Core Logic: Reliability Calculation]
+The system identifies "Success Rate" by looking at the last 50 emails processed by a specific rule and subtracting instances where a manual classification exists for the same message_id. This ensures the explanation is always grounded in recent user behavior.
 
 ## Documentation
 
