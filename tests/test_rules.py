@@ -96,6 +96,20 @@ def test_subject_regex_match(db: Database):
     assert clf.folder_path == "INBOX/Shopping/Orders"
 
 
+def test_subject_regex_below_threshold_returns_none(db: Database):
+    engine = _make_engine(db)
+    engine.create_rule(
+        rule_type="subject_regex",
+        condition_value=r"Order #\d+",
+        target_folder_path="INBOX/Shopping/Orders",
+        confidence=0.50,  # below 0.85 rule_move threshold
+        source="manual",
+    )
+    features = _make_features(subject="Your Order #12345 has shipped")
+    clf = engine.classify(features)
+    assert clf is None
+
+
 def test_no_match_returns_none(db: Database):
     engine = _make_engine(db)
     features = _make_features(from_address="unknown@random.org", from_domain="random.org")

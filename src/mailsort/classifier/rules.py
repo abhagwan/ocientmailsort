@@ -62,6 +62,8 @@ class RuleEngine:
         for rule in self._find_rules_by_type("subject_regex"):
             try:
                 if re.search(rule["condition_value"], features.subject):
+                    if rule["confidence"] < threshold:
+                        continue
                     if self._record_hits:
                         self._record_hit(rule["id"])
                     return self._to_classification(rule)
