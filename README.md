@@ -5,7 +5,32 @@ Mailsort - Rule Causation Explorer (XAI)
 [Why]
  Explainable AI (Rule Causation Explorer)
 Current State: The Web UI shows what happened. Enhancement: Add a "Why did this happen?" view. For a specific move, show the evidence: "This was moved to Shopping because it matched the sender_domain rule for amazon.com, which has a 98% success rate over the last 50 emails."
-[Enhancement]
+[Enhancement 1]
+Subject Regex Rules Skip the Confidence Threshold — actual bug
+File: src/mailsort/classifier/rules.py:62-69
+
+Every other rule type checks rule["confidence"] >= threshold before returning — but the subject_regex loop doesn't. A low-confidence regex rule will fire unconditionally. Fix is one if statement:
+
+
+for rule in self._find_rules_by_type("subject_regex"):
+    try:
+        if re.search(rule["condition_value"], features.subject):
+            if rule["confidence"] < threshold:   # ← add this check
+                continue
+            ...
+
+
+All 209 tests pass (208 original + 1 new).
+
+Summary of what was done:
+
+Bug fixed in C:\AvinashProject\mailsort\src\mailsort\classifier\rules.py: subject_regex rules now correctly check the confidence threshold before matching, consistent with all other rule types.
+New test added in tests/test_rules.py: test_subject_regex_below_threshold_returns_none — this would have caught the bug originally.
+
+
+
+
+[Enhancement 2]
 This enhancement adds the Rule Causation Explorer to Mailsort, providing transparency to the "deterministic-first" classification pipeline. It transforms the system from a "black box" into an explainable assistant by surfacing the specific evidence and historical reliability behind every automated email move.
 Self-hosted email classification service for Fastmail. Periodically scans read, unflagged inbox messages and moves them to the appropriate subfolder using deterministic rules and an LLM classifier.
 Why: Explainable AI (XAI)
