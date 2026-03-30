@@ -1,10 +1,5 @@
 # Mailsort
 ## Updated 
-Mailsort - Rule Causation Explorer (XAI)
-[Project Overview]
-[Why]
- Explainable AI (Rule Causation Explorer)
-Current State: The Web UI shows what happened. Enhancement: Add a "Why did this happen?" view. For a specific move, show the evidence: "This was moved to Shopping because it matched the sender_domain rule for amazon.com, which has a 98% success rate over the last 50 emails."
 [Enhancement 1]
 Subject Regex Rules Skip the Confidence Threshold — actual bug
 File: src/mailsort/classifier/rules.py:62-69
@@ -29,8 +24,16 @@ New test added in tests/test_rules.py: test_subject_regex_below_threshold_return
 
 
 
-
+Mailsort - Rule Causation Explorer (XAI)
+[Project Overview]
 [Enhancement 2]
+[Why]
+
+ 
+ 
+ Explainable AI (Rule Causation Explorer)
+Current State: The Web UI shows what happened. Enhancement: Add a "Why did this happen?" view. For a specific move, show the evidence: "This was moved to Shopping because it matched the sender_domain rule for amazon.com, which has a 98% success rate over the last 50 emails."
+
 This enhancement adds the Rule Causation Explorer to Mailsort, providing transparency to the "deterministic-first" classification pipeline. It transforms the system from a "black box" into an explainable assistant by surfacing the specific evidence and historical reliability behind every automated email move.
 Self-hosted email classification service for Fastmail. Periodically scans read, unflagged inbox messages and moves them to the appropriate subfolder using deterministic rules and an LLM classifier.
 Why: Explainable AI (XAI)
